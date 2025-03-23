@@ -1,34 +1,50 @@
-let mode = "downsample";
-
-function setMode(selectedMode) {
-    mode = selectedMode;
-}
-
-async function uploadImage() {
+document.getElementById("processButton").addEventListener("click", async function () {
     const fileInput = document.getElementById("fileInput");
+    const mode = document.querySelector('input[name="mode"]:checked');
+
     if (!fileInput.files.length) {
-        document.getElementById("errorMessage").innerText = "Please select an image!";
+        alert("Please select an image first!");
+        return;
+    }
+    if (!mode) {
+        alert("Please select an option (Upsample or Downsample)!");
         return;
     }
 
-    const formData = new FormData();
+    let formData = new FormData();
     formData.append("file", fileInput.files[0]);
-    formData.append("mode", mode);
+    formData.append("mode", mode.value);
 
     try {
-        const response = await fetch("http://127.0.0.1:5000/upload/", {
+        let response = await fetch("http://127.0.0.1:5000/upload/", {
             method: "POST",
-            body: formData,
+            body: formData
         });
 
-        if (!response.ok) throw new Error("Failed to process image.");
+        let contentType = response.headers.get("content-type");
 
-        const blob = await response.blob();
-        const imageUrl = URL.createObjectURL(blob);
-        document.getElementById("processedImage").src = imageUrl;
-        document.getElementById("errorMessage").innerText = "";
+        if (!response.ok) {
+            // If the server sends a JSON error, parse it
+            if (contentType && contentType.includes("application/json")) {
+                let errorData = await response.json();
+                alert("Error: " + errorData.error);
+            } else {
+                let errorText = await response.text();
+                alert("Error: " + errorText);
+            }
+            return;
+        }
+
+        // If the response is an image, display it
+        if (contentType && contentType.includes("image/jpeg")) {
+            let blob = await response.blob();
+            let imgUrl = URL.createObjectURL(blob);
+            document.getElementById("processedImage").src = imgUrl;
+        } else {
+            alert("Unexpected response from server!");
+        }
     } catch (error) {
-        console.error(error);
-        document.getElementById("errorMessage").innerText = "Error processing image.";
+        console.error("Fetch error:", error);
+        alert("An error occurred while processing the image.");
     }
-}
+});
